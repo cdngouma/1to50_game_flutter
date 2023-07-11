@@ -2,55 +2,77 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:one_to_fifty/board.dart';
+import 'package:one_to_fifty/main_game/logic.dart';
+
+import 'game_cell.dart';
 
 class Game extends StatefulWidget {
+  const Game({super.key});
+
   @override
   State<Game> createState() => _Game();
 }
 
 class _Game extends State<Game> {
-  Board board = Board();
-  int nextNumber = 1;
+  GameLogic game = GameLogic();
+  bool isCompleted = false;
+
+  Duration duration = const Duration();
+  Timer? timer;
   int currentTime = 0;
   int bestTime = 86400;
 
-  Duration duration = Duration();
-  Timer? timer;
+  void handleCellTappedEvent(int cellId) {
+    // Start timer if the first cell was pressed
+    if(game.nextNumber == 1 && game.getCellValue(cellId) == 1) {
+      startTimer();
+    }
+
+    isCompleted = game.updateGameState(cellId);
+
+    if(isCompleted) {
+      bestTime = min(currentTime, bestTime);
+      setState(() {
+        isCompleted = isCompleted;
+        bestTime = bestTime;
+      });
+
+      stopTimer();
+      Navigator.popAndPushNamed(
+          context, "/win_page",
+          arguments: {
+            "currentTime": currentTime,
+            "bestTime": bestTime
+          }
+      );
+    }
+  }
 
   void startTimer(){
-    timer = Timer.periodic(Duration(seconds: 1),(_) {
-      setState(() {
-        final seconds = duration.inSeconds + 1;
-        if (seconds < 0){
-          timer?.cancel();
-        } else{
-          duration = Duration(seconds: seconds);
-        }
-      });
+    timer = Timer.periodic(const Duration(seconds: 1),(_) {
+      final seconds = duration.inSeconds + 1;
+      if (seconds < 0){
+        timer?.cancel();
+      } else{
+        duration = Duration(seconds: seconds);
+        currentTime = duration.inSeconds;
+        setState(() {
+          currentTime = currentTime;
+        });
+      }
     });
   }
 
   void stopTimer(){
-    duration = Duration();
-    setState(() => timer?.cancel());
-  }
-
-  int getTime() {
-    final time = duration.inSeconds;
-    currentTime = time;
-    return time;
+    duration = const Duration();
+    timer?.cancel();
   }
 
   @override
   Widget build(BuildContext context) {
     final arguments = (ModalRoute.of(context)?.settings.arguments ?? <String, dynamic>{}) as Map;
-    print("======= ${bestTime} --> ${arguments['bestTime']}");
     if(arguments["bestTime"] != null) {
       bestTime = min(arguments["bestTime"], bestTime);
-      setState(() {
-        bestTime = bestTime;
-      });
     }
 
     return Scaffold(
@@ -81,7 +103,7 @@ class _Game extends State<Game> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                            arguments['bestTime'] != null ? "${bestTime}s" : "N/A",
+                            arguments['bestTime'] != null ? "${bestTime}s" : "-",
                             style: const TextStyle(
                                 color: Colors.amber,
                                 fontSize: 20.0,
@@ -101,7 +123,7 @@ class _Game extends State<Game> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                            "${nextNumber}",
+                            "${game.nextNumber}",
                             style: const TextStyle(
                                 color: Colors.amber,
                                 fontSize: 20.0,
@@ -120,49 +142,16 @@ class _Game extends State<Game> {
                 Expanded(
                   child: GridView.count(
                     crossAxisCount: 5,
-                    children: board.gridIndices.map((idx) => InkWell(
-                      onTap: () {
-                          if(nextNumber == 1 && board.gridValues[idx] == 1) {
-                            startTimer();
-                          }
-
-                          board.updateCell(idx);
-                          setState(() {
-                            nextNumber = board.nextNumber;
-                          });
-
-                          bool isCompleted = board.isCompleted();
-                          if(isCompleted) {
-                            setState(() {
-                              bestTime = min(bestTime, currentTime);
-                            });
-
-                            bestTime = min(currentTime, bestTime);
-
-                            stopTimer();
-
-                            Navigator.popAndPushNamed(
-                                context, "/win_page",
-                                arguments: {"currentTime": currentTime, "bestTime": bestTime}
-                            );
-                          }
-                        },
-                      child: Padding(
-                          padding: const EdgeInsets.all(5.0),
-                          child: Container(
-                            alignment: Alignment.center,
-                            color: board.gridValues[idx] == 0 ? Colors.black54 : (board.gridValues[idx] ?? 0) > 25 ? Colors.amber : Colors.amber[300],
-                            child: Text(
-                                "${board.gridValues[idx] == 0 ? '' : board.gridValues[idx]}",
-                                style: const TextStyle(
-                                  fontSize: 25.0,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 2.0,
-                                ),
-                            ),
-                          )
-                      ),
-                    )).toList(),
+                    crossAxisSpacing: 10.0,
+                    mainAxisSpacing: 10.0,
+                    children: game.getGridIds().map((idx) => CellWidget(
+                        id: idx,
+                        value: game.getCellValue(idx),
+                        onCellTapped: (int id) {
+                          handleCellTappedEvent(id);
+                        }
+                    )
+                    ).toList(),
                   ),
                 ),
 
@@ -170,7 +159,7 @@ class _Game extends State<Game> {
                   children: <Widget>[
                     Text("TIME", style: TextStyle(color: Colors.grey[400])),
                     Text(
-                        "${getTime()}s",
+                        "${currentTime}s",
                         style: TextStyle(color: Colors.grey[400], fontSize: 40.0))
                   ],
                 )

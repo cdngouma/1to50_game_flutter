@@ -1,26 +1,28 @@
 import 'dart:math';
 
 class Board {
-  final int ROWS = 5;
-  final int COLS = 5;
+  int rows = 5;
+  int cols = 5;
   int nextNumber = 1;
   int highestNumber = 0;
   Map<int, int> gridValues = {};
   List<int> gridIndices = [];
 
-  Board() {
+  Board({required rows, required cols}) {
+    rows = rows;
+    cols = cols;
     initGrid();
   }
 
   void initGrid() {
-    gridIndices = List.filled(ROWS*COLS, 0);
-    for(int i=0; i<ROWS*COLS; i++) {
+    gridIndices = List.filled(rows*cols, 0);
+    for(int i=0; i<rows*cols; i++) {
       gridValues[i] = i + 1;
       gridIndices[i] = i;
     }
     gridIndices.shuffle();
     nextNumber = 1;
-    highestNumber = ROWS*COLS + 1;
+    highestNumber = rows*cols + 1;
   }
 
   Map<int, int> getGridValues() {
@@ -33,8 +35,8 @@ class Board {
 
   int updateCell(int id) {
     if(gridValues[id] == nextNumber) {
-      nextNumber = min(2*COLS*ROWS, nextNumber + 1);
-      if(highestNumber > 2*COLS*ROWS) {
+      nextNumber = min(2*cols*rows, nextNumber + 1);
+      if(highestNumber > 2*cols*rows) {
         gridValues[id] = 0;
       } else {
         gridValues[id] = highestNumber;
@@ -51,5 +53,27 @@ class Board {
       }
     }
     return true;
+  }
+}
+
+class GameLogic {
+  int nextNumber = 1;
+  Board board = Board(rows: 5, cols: 5);
+
+  List<int> getGridIds() {
+    return board.gridIndices;
+  }
+
+  int getCellValue(int id) {
+    return board.gridValues[id] ?? 0;
+  }
+
+  bool updateGameState(int id) {
+    // Update cell value
+    board.updateCell(id);
+    nextNumber = board.nextNumber;
+
+    // Check if game was completed
+    return board.isCompleted();
   }
 }
